@@ -1,4 +1,5 @@
-import streamlit as st
+API_USER = "1646868698"
+API_SECRET = "zzHsRe8fz2f9bSh8aKFNSUJy2gBGYSBu"import streamlit as st
 from PIL import Image
 import numpy as np
 
