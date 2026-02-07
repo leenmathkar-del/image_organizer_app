@@ -1,59 +1,98 @@
-API_USER = "1646868698"
-API_SECRET = "zzHsRe8fz2f9bSh8aKFNSUJy2gBGYSBu"
 import streamlit as st
 from PIL import Image
 import numpy as np
+import cv2
 
-# ---------- Page setup ----------
+# -----------------------
+# Page config
+# -----------------------
 st.set_page_config(
-    page_title="AI Image Detector",
-    page_icon="🕵️‍♀️",
+    page_title="AI Image Detector | كاشف الصور",
+    page_icon="🧠",
     layout="centered"
 )
 
-# ---------- Title ----------
-st.title("🕵️‍♀️ كاشف الصور بالذكاء الاصطناعي")
-st.subheader("AI vs Real Image Detector")
+# -----------------------
+# Language selector
+# -----------------------
+lang = st.selectbox("🌍 Language / اللغة", ["العربية", "English"])
 
-st.write("ارفع صورة وسنخبرك هل هي مولدة بالذكاء الاصطناعي أم صورة حقيقية")
-st.write("Upload an image and we will analyze if it is AI-generated or real")
+# -----------------------
+# Texts
+# -----------------------
+TEXT = {
+    "العربية": {
+        "title": "🧠 كاشف الصور بالذكاء الاصطناعي",
+        "desc": "ارفع صورة وسيتم تحليلها لمعرفة هل هي حقيقية أم مولدة بالذكاء الاصطناعي",
+        "upload": "📤 ارفع صورة",
+        "real": "📸 صورة حقيقية",
+        "ai": "🤖 صورة مولدة بالذكاء الاصطناعي",
+        "confidence": "نسبة الثقة",
+        "footer": "النتيجه تقريبيه ليست دقيقه"
+    },
+    "English": {
+        "title": "🧠 AI Image Detector",
+        "desc": "Upload an image to check whether it is real or AI-generated",
+        "upload": "📤 Upload Image",
+        "real": "📸 Real Image",
+        "ai": "🤖 AI Generated Image",
+        "confidence": "Confidence",
+        "footer": "⚠️ Results are estimations, not 100% accurate"
+    }
+}
 
-# ---------- Upload ----------
+t = TEXT[lang]
+
+# -----------------------
+# Title
+# -----------------------
+st.title(t["title"])
+st.write(t["desc"])
+
+# -----------------------
+# Upload image
+# -----------------------
 uploaded_file = st.file_uploader(
-    "📤 ارفع الصورة | Upload Image",
+    t["upload"],
     type=["jpg", "jpeg", "png"]
 )
 
-def analyze_image(image):
-    """
-    تحليل بسيط يعتمد على الضوضاء والتباين
-    (حل عملي وخفيف لـ Streamlit Cloud)
-    """
-    img_array = np.array(image.convert("L"))
-    variance = np.var(img_array)
+# -----------------------
+# Detection logic
+# -----------------------
+def detect_ai(image):
+    img = np.array(image)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    if variance < 500:
-        ai_prob = np.random.randint(70, 90)
-        real_prob = 100 - ai_prob
-        label = "🤖 صورة مولدة بالذكاء الاصطناعي | AI Generated Image"
+    # Laplacian variance (blur / smoothness)
+    variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+
+    # Heuristic decision
+    if variance < 120:
+        label = "AI"
+        confidence = min(95, int(100 - variance))
     else:
-        real_prob = np.random.randint(70, 90)
-        ai_prob = 100 - real_prob
-        label = "📷 صورة حقيقية | Real Image"
+        label = "REAL"
+        confidence = min(95, int(variance / 2))
 
-    return label, ai_prob, real_prob
+    return label, confidence
 
-# ---------- Show & Analyze ----------
+# -----------------------
+# Show result
+# -----------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
-    st.image(image, caption="📸 الصورة المرفوعة", use_column_width=True)
+    st.image(image, use_column_width=True)
 
-    if st.button("🔍 تحليل الصورة | Analyze Image"):
-        with st.spinner("⏳ جاري التحليل..."):
-            label, ai_prob, real_prob = analyze_image(image)
+    label, confidence = detect_ai(image)
 
-        st.success(label)
-        st.metric("🤖 AI Probability", f"{ai_prob}%")
-        st.metric("📷 Real Probability", f"{real_prob}%")
+    st.markdown("---")
 
-        st.info("⚠️ النتيجة تقديرية وليست مؤكدة 100%")
+    if label == "AI":
+        st.error(f"{t['ai']}")
+    else:
+        st.success(f"{t['real']}")
+
+    st.metric(t["confidence"], f"{confidence}%")
+
+    st.caption(t["footer"])
