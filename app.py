@@ -1,7 +1,6 @@
-import streamlit as st
-from PIL import Image
+ import streamlit as st
+from PIL import Image, ImageFilter
 import numpy as np
-import cv2
 
 # -----------------------
 # Page config
@@ -17,9 +16,6 @@ st.set_page_config(
 # -----------------------
 lang = st.selectbox("🌍 Language / اللغة", ["العربية", "English"])
 
-# -----------------------
-# Texts
-# -----------------------
 TEXT = {
     "العربية": {
         "title": "🧠 كاشف الصور بالذكاء الاصطناعي",
@@ -28,7 +24,7 @@ TEXT = {
         "real": "📸 صورة حقيقية",
         "ai": "🤖 صورة مولدة بالذكاء الاصطناعي",
         "confidence": "نسبة الثقة",
-        "footer": "النتيجه تقريبيه ليست دقيقه"
+        "footer": "⚠️ النتيجة تقديرية وليست 100٪ دقيقة"
     },
     "English": {
         "title": "🧠 AI Image Detector",
@@ -44,41 +40,37 @@ TEXT = {
 t = TEXT[lang]
 
 # -----------------------
-# Title
+# UI
 # -----------------------
 st.title(t["title"])
 st.write(t["desc"])
 
-# -----------------------
-# Upload image
-# -----------------------
 uploaded_file = st.file_uploader(
     t["upload"],
     type=["jpg", "jpeg", "png"]
 )
 
 # -----------------------
-# Detection logic
+# Detection logic (NO cv2)
 # -----------------------
 def detect_ai(image):
-    img = np.array(image)
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gray = image.convert("L")
+    edges = gray.filter(ImageFilter.FIND_EDGES)
 
-    # Laplacian variance (blur / smoothness)
-    variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+    arr = np.array(edges)
+    sharpness = arr.var()
 
-    # Heuristic decision
-    if variance < 120:
+    if sharpness < 150:
         label = "AI"
-        confidence = min(95, int(100 - variance))
+        confidence = int(min(95, 100 - sharpness))
     else:
         label = "REAL"
-        confidence = min(95, int(variance / 2))
+        confidence = int(min(95, sharpness / 2))
 
     return label, confidence
 
 # -----------------------
-# Show result
+# Result
 # -----------------------
 if uploaded_file:
     image = Image.open(uploaded_file)
@@ -89,10 +81,9 @@ if uploaded_file:
     st.markdown("---")
 
     if label == "AI":
-        st.error(f"{t['ai']}")
+        st.error(t["ai"])
     else:
-        st.success(f"{t['real']}")
+        st.success(t["real"])
 
     st.metric(t["confidence"], f"{confidence}%")
-
     st.caption(t["footer"])
